@@ -1,0 +1,265 @@
+{
+  "version": "0.1.0",
+  "schemas": {
+    "paginationSchema": {
+      "$ref": "#/definitions/paginationSchema",
+      "definitions": {
+        "paginationSchema": {
+          "type": "object",
+          "properties": {
+            "page": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "emailParam": {
+      "$ref": "#/definitions/emailParam",
+      "definitions": {
+        "emailParam": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "strongPasswordParam": {
+      "$ref": "#/definitions/strongPasswordParam",
+      "definitions": {
+        "strongPasswordParam": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128,
+          "allOf": [
+            {
+              "pattern": "[a-z]"
+            },
+            {
+              "pattern": "[A-Z]"
+            },
+            {
+              "pattern": "[0-9]"
+            }
+          ]
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "phoneParam": {
+      "$ref": "#/definitions/phoneParam",
+      "definitions": {
+        "phoneParam": {
+          "type": "string",
+          "pattern": "^\\+?[0-9]{8,15}$"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "dateQueryParam": {
+      "$ref": "#/definitions/dateQueryParam",
+      "definitions": {
+        "dateQueryParam": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "loginSchema": {
+      "$ref": "#/definitions/loginSchema",
+      "definitions": {
+        "loginSchema": {
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": "string",
+              "format": "email",
+              "maxLength": 254
+            },
+            "password": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "email",
+            "password"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "forgotPasswordSchema": {
+      "$ref": "#/definitions/forgotPasswordSchema",
+      "definitions": {
+        "forgotPasswordSchema": {
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": "string",
+              "format": "email",
+              "maxLength": 254
+            },
+            "language": {
+              "type": "string",
+              "maxLength": 10
+            }
+          },
+          "required": [
+            "email"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "resetPasswordSchema": {
+      "$ref": "#/definitions/resetPasswordSchema",
+      "definitions": {
+        "resetPasswordSchema": {
+          "type": "object",
+          "properties": {
+            "token": {
+              "type": "string",
+              "minLength": 20
+            },
+            "password": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "allOf": [
+                {
+                  "pattern": "[a-z]"
+                },
+                {
+                  "pattern": "[A-Z]"
+                },
+                {
+                  "pattern": "[0-9]"
+                }
+              ]
+            }
+          },
+          "required": [
+            "token",
+            "password"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "verifyTokenSchema": {
+      "$ref": "#/definitions/verifyTokenSchema",
+      "definitions": {
+        "verifyTokenSchema": {
+          "type": "object",
+          "properties": {
+            "token": {
+              "type": "string",
+              "minLength": 20
+            }
+          },
+          "required": [
+            "token"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "createNotificationSchema": {
+      "$ref": "#/definitions/createNotificationSchema",
+      "definitions": {
+        "createNotificationSchema": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "system",
+                "safety",
+                "task",
+                "payroll",
+                "announcement",
+                "maintenance",
+                "warranty"
+              ]
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "body": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "priority": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            },
+            "recipients": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "maxItems": 500
+            },
+            "targetPlatform": {
+              "type": "string",
+              "enum": [
+                "all",
+                "android",
+                "web"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "title",
+            "body"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "createIdParamSchema": {
+      "$ref": "#/definitions/createIdParamSchema",
+      "definitions": {
+        "createIdParamSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  }
+}

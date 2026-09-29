@@ -1,0 +1,48 @@
+{
+  "name": "@axion/ui",
+  "version": "0.1.0",
+  "description": "\u062d\u064a \u0627\u0644\u0648\u0627\u062c\u0647\u0629 \u0627\u0644\u0645\u0631\u0643\u0632\u064a \u2014 \u0645\u0643\u0648\u0646\u0627\u062a React/shadcn \u0645\u0648\u062d\u062f\u0629 \u0644\u0643\u0644 \u0645\u062f\u0646 \u0627\u0644\u0645\u0645\u0644\u0643\u0629",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.0",
+    "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-select": "^2.1.0",
+    "@radix-ui/react-separator": "^1.1.0",
+    "@radix-ui/react-slot": "^1.1.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.460.0",
+    "tailwind-merge": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.5.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.5.4",
+    "vitest": "4.1.11"
+  },
+  "license": "MIT",
+  "private": false
+}

@@ -1,0 +1,39 @@
+{
+  "name": "@axion/validation",
+  "version": "0.1.0",
+  "description": "\u062d\u064a \u0627\u0644\u062a\u062d\u0642\u0642 \u0627\u0644\u0645\u0631\u0643\u0632\u064a \u2014 \u062a\u062d\u0642\u0642 \u0645\u0648\u062d\u062f \u0628\u0627\u0644\u0645\u0639\u0627\u064a\u064a\u0631 \u0627\u0644\u0639\u0627\u0644\u0645\u064a\u0629 (OWASP/JSON Schema) \u0648\u0623\u062a\u0645\u062a\u0629 \u0643\u0627\u0645\u0644\u0629",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "contracts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "generate:contracts": "tsx src/contract-cli.ts",
+    "check:contracts": "tsx src/contract-cli.ts --check",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.23.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
+    "express": "^4.19.2",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "vitest": "4.1.11"
+  },
+  "license": "MIT",
+  "private": false
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@axion/security",
+  "version": "0.1.0",
+  "description": "\u062d\u064a \u0627\u0644\u062d\u0645\u0627\u064a\u0629 \u0627\u0644\u0645\u0631\u0643\u0632\u064a \u2014 \u062a\u062d\u062f\u064a\u062f \u0645\u0639\u062f\u0644 \u0645\u0648\u062d\u062f \u0644\u0643\u0644 \u0645\u062f\u0646 \u0627\u0644\u0645\u0645\u0644\u0643\u0629",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "express-rate-limit": "^7.4.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "typescript": "^5.5.4",
+    "vitest": "4.1.11"
+  },
+  "license": "MIT",
+  "private": false
+}

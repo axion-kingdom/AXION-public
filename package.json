@@ -1,0 +1,21 @@
+{
+  "name": "axion-public",
+  "version": "1.0.0",
+  "private": false,
+  "license": "MIT",
+  "description": "Public-safe AXION source. No production coupling.",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "node scripts/lint-public.mjs",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "scan": "python3 scripts/scan-public-surface.py ."
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
