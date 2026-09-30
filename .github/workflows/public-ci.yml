@@ -1,102 +1,26 @@
-name: AXION Private CI via Public Runner
+name: Public CI
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Private AXION branch, tag, or commit SHA to verify'
-        required: false
-        default: main
-      sha:
-        description: 'Optional exact private commit SHA; when set, it takes precedence over ref'
-        required: false
-        default: ''
-  schedule:
-    - cron: '*/15 * * * *'
 
 permissions:
   contents: read
 
-concurrency:
-  group: axion-private-ci-${{ github.event.inputs.sha || github.event.inputs.ref || 'main' }}
-  cancel-in-progress: true
-
-env:
-  PRIVATE_REPO: axion-kingdom/AXION
-  STATUS_CONTEXT: AXION-public-ci
-
 jobs:
-  private-ci:
+  public-ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
-      - name: Resolve target
-        id: target
-        shell: bash
-        env:
-          INPUT_REF: ${{ github.event.inputs.ref || 'main' }}
-          INPUT_SHA: ${{ github.event.inputs.sha || '' }}
-        run: |
-          set -euo pipefail
-          if [[ -n "$INPUT_SHA" ]]; then
-            echo "ref=$INPUT_SHA" >> "$GITHUB_OUTPUT"
-          else
-            echo "ref=$INPUT_REF" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Validate private CI token
-        env:
-          TOKEN: ${{ secrets.AXION_PRIVATE_CI_TOKEN }}
-        run: test -n "$TOKEN"
-
-      - name: Checkout private AXION
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          repository: axion-kingdom/AXION
-          ref: ${{ steps.target.outputs.ref }}
-          token: ${{ secrets.AXION_PRIVATE_CI_TOKEN }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Record exact SHA
-        id: revision
-        shell: bash
-        run: |
-          set -euo pipefail
-          SHA="$(git rev-parse HEAD)"
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "Testing private AXION commit: $SHA"
-
-      - name: Set pending status on private commit
-        if: ${{ always() }}
-        env:
-          TOKEN: ${{ secrets.AXION_PRIVATE_CI_TOKEN }}
-          SHA: ${{ steps.revision.outputs.sha || '' }}
-          STATUS_CONTEXT: AXION-public-ci
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -z "$SHA" ]]; then exit 0; fi
-          python3 - <<'PY' > /tmp/status.json
-import json, os
-print(json.dumps({'state':'pending','context':os.environ['STATUS_CONTEXT'],'description':'CI is running on GitHub-hosted runner via AXION-public','target_url':f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"}))
-PY
-          curl --fail-with-body --silent --show-error -X POST \
-            -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$PRIVATE_REPO/statuses/$SHA" --data-binary @/tmp/status.json
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Install
         run: npm install --no-audit --no-fund
@@ -113,29 +37,8 @@ PY
       - name: Build
         run: npm run build
 
-      - name: Finalize private commit status
-        if: ${{ always() && steps.revision.outputs.sha != '' }}
-        env:
-          TOKEN: ${{ secrets.AXION_PRIVATE_CI_TOKEN }}
-          SHA: ${{ steps.revision.outputs.sha }}
-          JOB_STATUS: ${{ job.status }}
-          STATUS_CONTEXT: AXION-public-ci
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ "$JOB_STATUS" == "success" ]]; then
-            STATE=success
-            DESC='AXION private CI passed on GitHub-hosted runner'
-          else
-            STATE=failure
-            DESC='AXION private CI failed; inspect AXION-public workflow logs'
-          fi
-          export STATE DESC
-          python3 - <<'PY' > /tmp/status.json
-import json, os
-print(json.dumps({'state':os.environ['STATE'],'context':os.environ['STATUS_CONTEXT'],'description':os.environ['DESC'],'target_url':f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"}))
-PY
-          curl --fail-with-body --silent --show-error -X POST \
-            -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$PRIVATE_REPO/statuses/$SHA" --data-binary @/tmp/status.json
+      - name: Secret scan
+        run: python3 scripts/scan-public-surface.py .
+
+      - name: Dependency audit
+        run: npm audit --audit-level=critical
