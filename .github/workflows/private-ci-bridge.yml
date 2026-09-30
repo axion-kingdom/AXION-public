@@ -1,0 +1,255 @@
+name: AXION Private CI Bridge
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: "Optional exact private AXION commit SHA to verify"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  PRIVATE_REPO: axion-kingdom/AXION
+  STATUS_CONTEXT: AXION-public-ci
+
+concurrency:
+  group: axion-private-ci-bridge
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
+    steps:
+      - name: Discover private revisions
+        id: discover
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.AXION_PRIVATE_CI_TOKEN }}
+          TARGET_SHA: ${{ github.event.inputs.target_sha || '' }}
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          repo = os.environ["PRIVATE_REPO"]
+          target_sha = os.environ.get("TARGET_SHA", "").strip()
+
+          def gh_json(args):
+              return subprocess.check_output(
+                  ["gh", "api", *args],
+                  text=True,
+              )
+
+          def has_success(sha):
+              raw = gh_json([
+                  f"repos/{repo}/commits/{sha}/statuses",
+                  "--method", "GET",
+                  "-f", "per_page=100",
+              ])
+              statuses = json.loads(raw)
+              return any(
+                  item.get("context") == os.environ["STATUS_CONTEXT"]
+                  and item.get("state") == "success"
+                  for item in statuses
+              )
+
+          def has_any_status(sha):
+              raw = gh_json([
+                  f"repos/{repo}/commits/{sha}/statuses",
+                  "--method", "GET",
+                  "-f", "per_page=100",
+              ])
+              statuses = json.loads(raw)
+              return any(
+                  item.get("context") == os.environ["STATUS_CONTEXT"]
+                  for item in statuses
+              )
+
+          if target_sha:
+              revisions = [target_sha]
+          else:
+              main_sha = gh_json([
+                  f"repos/{repo}/git/ref/heads/main",
+                  "--method", "GET",
+              ])
+              main_sha = json.loads(main_sha)["object"]["sha"]
+              revisions = [main_sha]
+
+              prs = json.loads(gh_json([
+                  f"repos/{repo}/pulls",
+                  "--method", "GET",
+                  "-f", "state=open",
+                  "-f", "per_page=100",
+              ]))
+
+              for pr in prs:
+                  head = pr.get("head", {})
+                  head_repo = (head.get("repo") or {}).get("full_name")
+                  sha = head.get("sha")
+                  if head_repo == repo and sha:
+                      revisions.append(sha)
+
+          unique = []
+          seen = set()
+          for sha in revisions:
+              if sha and sha not in seen:
+                  seen.add(sha)
+                  unique.append(sha)
+
+          selected = []
+          for sha in unique:
+              if target_sha:
+                  selected.append({"sha": sha})
+                  continue
+
+              # A completed success is already verified.
+              if has_success(sha):
+                  continue
+
+              # Existing pending/failure/error is preserved until an explicit retry.
+              if has_any_status(sha):
+                  continue
+
+              selected.append({"sha": sha})
+
+          print(f"Discovered {len(selected)} private revision(s) requiring CI.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write("matrix=" + json.dumps(
+                  {"include": selected},
+                  separators=(",", ":"),
+              ) + "\n")
+
+  private-ci:
+    needs: discover
+    if: ${{ needs.discover.outputs.matrix != '{"include":[]}' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: axion-private-ci-${{ matrix.sha }}
+      cancel-in-progress: false
+    steps:
+      - name: Set pending status
+        env:
+          GH_TOKEN: ${{ secrets.AXION_PRIVATE_CI_TOKEN }}
+          SHA: ${{ matrix.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api \
+            "repos/$PRIVATE_REPO/statuses/$SHA" \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -f state=pending \
+            -f context="$STATUS_CONTEXT" \
+            -f description="CI running on GitHub-hosted runner via AXION-public" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            >/dev/null
+
+      - name: Checkout exact private commit
+        uses: actions/checkout@v4
+        with:
+          repository: axion-kingdom/AXION
+          ref: ${{ matrix.sha }}
+          token: ${{ secrets.AXION_PRIVATE_CI_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ matrix.sha }}"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install app dependencies
+        working-directory: apps/axion
+        run: |
+          npm install -g npm@10.9.4
+          bash ../../scripts/memory-gate.sh
+          npm ci --prefer-offline --no-audit --no-fund --loglevel=error
+
+      - name: Build central packages
+        working-directory: apps/axion
+        run: |
+          bash ../../scripts/memory-gate.sh
+          (cd ../../packages/auth && npm ci --prefer-offline --no-audit --no-fund --loglevel=error && npm run build)
+          bash ../../scripts/memory-gate.sh
+          (cd ../../packages/validation && npm ci --prefer-offline --no-audit --no-fund --loglevel=error && npm run build)
+          bash ../../scripts/memory-gate.sh
+          (cd ../../packages/security && npm ci --prefer-offline --no-audit --no-fund --loglevel=error && npm run build)
+          bash ../../scripts/memory-gate.sh
+          (cd ../../packages/secrets && npm ci --prefer-offline --no-audit --no-fund --loglevel=error && npm run build)
+          bash ../../scripts/memory-gate.sh
+          (cd ../../packages/ui && npm ci --prefer-offline --no-audit --no-fund --loglevel=error && npm run build)
+
+      - name: Typecheck server
+        working-directory: apps/axion
+        env:
+          NODE_OPTIONS: --max-old-space-size=3072
+        run: npx tsc --noEmit --project tsconfig.server.json
+
+      - name: Typecheck client
+        working-directory: apps/axion
+        env:
+          NODE_OPTIONS: --max-old-space-size=3072
+        run: npx tsc --noEmit --project tsconfig.client.json
+
+      - name: Unit and failover tests
+        working-directory: apps/axion
+        run: npx vitest run server/tests/unit client/src/lib/__tests__/data-source-failover.test.ts --exclude '**/sync-server-env.smoke.test.ts'
+
+      - name: Security guard
+        run: bash scripts/firebase-key-guard.sh
+
+      - name: Registry guard
+        run: bash scripts/registry-guard.sh --repo
+
+      - name: Type any guard
+        run: node scripts/ts-any-guard.cjs --check
+
+      - name: Finalize private commit status
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ secrets.AXION_PRIVATE_CI_TOKEN }}
+          SHA: ${{ matrix.sha }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$JOB_STATUS" == "success" ]]; then
+            STATE=success
+            DESC="AXION private CI passed on GitHub-hosted runner"
+          else
+            STATE=failure
+            DESC="AXION private CI failed; inspect AXION-public workflow logs"
+          fi
+          gh api \
+            "repos/$PRIVATE_REPO/statuses/$SHA" \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -f state="$STATE" \
+            -f context="$STATUS_CONTEXT" \
+            -f description="$DESC" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            >/dev/null
